@@ -42,7 +42,7 @@ schemaComposer.Query.addFields({
       blockHash: 'String!',
     },
     resolve: async (_, { blockHash }) => {
-      return await energyService.getEnergyPerBlock(blockHash);
+      return await energyService.getBlockEnergyConsumption(blockHash);
     },
   },
   dailyEnergyConsumption: {

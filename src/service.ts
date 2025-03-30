@@ -2,35 +2,36 @@ import axios from 'axios';
 import { Sema } from 'async-sema';
 import { DailyEnergy, TransactionEnergy, WalletEnergy } from './models';
 
+const BASE_URL = 'https://blockchain.info';
+const RAW_BLOCK_URL = `${BASE_URL}/rawblock`;
+const RAW_TX_URL = `${BASE_URL}/rawtx`;
+const BLOCKS_URL = `${BASE_URL}/blocks`;
+const RAW_ADDR_URL = `${BASE_URL}/rawaddr`;
+
 export class BlockchainEnergyConsumptionService {
     private readonly ENERGY_PER_BYTE = 4.56; // KwH
-    private cache: Map<string, any> = new Map(); // Cache to store fetched data
+
+    /**
+     * TODO: persist cache to disk and use a more sophisticated caching mechanism.
+     * Currently it uses the url as the key and the fetched data as the value.
+     * This might cause dirty cache for example new transactions might be added to 
+     * the block but the cache is not updated.
+     */
+    private cache: Map<string, any> = new Map(); 
   
-    async getEnergyPerBlock(blockHash: string): Promise<TransactionEnergy[]> {
+    async getBlockEnergyConsumption(blockHash: string): Promise<TransactionEnergy[]> {
       const block = await this.fetchWithCache(
-        `https://blockchain.info/rawblock/${blockHash}`
+        `${RAW_BLOCK_URL}/${blockHash}`
       );
       
       const transactions: TransactionEnergy[] = [];
-      const sema = new Sema(5); // Limit concurrency to 5
 
       for (const tx of block.tx) {
-        await sema.acquire(); // Acquire a slot
-        (async () => {
-          try {
-            const txDetails = await this.fetchWithCache(
-              `https://blockchain.info/rawtx/${tx.hash}`
-            );
-    
-            transactions.push({
-              transactionHash: tx.hash,
-              energyKwh: txDetails.size * this.ENERGY_PER_BYTE,
-              sizeBytes: txDetails.size,
-            });
-          } finally {
-            sema.release(); // Release the slot
-          }
-        })();
+        transactions.push({
+          transactionHash: tx.hash,
+          energyKwh: tx.size * this.ENERGY_PER_BYTE,
+          sizeBytes: tx.size,
+        });
       }
 
       return transactions;
@@ -39,52 +40,56 @@ export class BlockchainEnergyConsumptionService {
     async getDailyEnergyConsumption(days: number): Promise<DailyEnergy[]> {
       const now = Date.now();
       const results: DailyEnergy[] = [];
-      
-      for (let i = 0; i < days; i++) {
-        const timestamp = now - (i * 24 * 60 * 60 * 1000);
-        console.log(`Fetching data for date: ${new Date(timestamp).toISOString()}`);
-        const blocks = await this.fetchWithCache(
-          `https://blockchain.info/blocks/${timestamp}?format=json`
-        );
-        
-        let totalEnergy = 0;
-        let txCount = 0;
-        
-        for (const block of blocks) {
-          // Reuse getEnergyPerBlock to fetch transactions for the block
-          const transactions = await this.getEnergyPerBlock(block.hash);
+      const sema = new Sema(5); // Limit concurrency to 5 requests at a time
 
-          // Aggregate energy and transaction count
-          totalEnergy += transactions.reduce(
-            (sum, tx) => sum + tx.energyKwh,
-            0
+      for (let i = 0; i < days; i++) {
+        const timestamp = now - i * 24 * 60 * 60 * 1000;
+        console.log(`Fetching data for date: ${new Date(timestamp).toISOString()}`);
+
+        await sema.acquire(); // Acquire a slot for the request
+        try {
+          const blocks = await this.fetchWithCache(
+            `${BLOCKS_URL}/${timestamp}?format=json`
           );
-          txCount += transactions.length;
+
+          let totalEnergy = 0;
+          let txCount = 0;
+
+          for (const block of blocks) {
+            // Reuse getBlockEnergyConsumption to fetch transactions for the block
+            const transactions = await this.getBlockEnergyConsumption(block.hash);
+
+            // Aggregate energy and transaction count
+            totalEnergy += transactions.reduce(
+              (sum, tx) => sum + tx.energyKwh,
+              0
+            );
+            txCount += transactions.length;
+          }
+
+          results.push({
+            date: new Date(timestamp).toISOString().split('T')[0],
+            totalEnergyKwh: totalEnergy,
+            transactionCount: txCount,
+          });
+        } finally {
+          sema.release(); // Release the slot after the request is complete
         }
-        
-        results.push({
-          date: new Date(timestamp).toISOString().split('T')[0],
-          totalEnergyKwh: totalEnergy,
-          transactionCount: txCount
-        });
       }
-      
+
       return results;
     }
 
     async getWalletEnergyConsumption(address: string): Promise<WalletEnergy> {
       const wallet = await this.fetchWithCache(
-        `https://blockchain.info/rawaddr/${address}`
+        `${RAW_ADDR_URL}/${address}`
       );
       
       let totalEnergy = 0;
       let txCount = 0;
       
       for (const tx of wallet.txs) {
-        const txDetails = await this.fetchWithCache(
-          `https://blockchain.info/rawtx/${tx.hash}`
-        );
-        
+        const txDetails = await this.getTransactionByHashCode(tx.hash);
         totalEnergy += txDetails.size * this.ENERGY_PER_BYTE;
         txCount++;
       }
@@ -94,6 +99,10 @@ export class BlockchainEnergyConsumptionService {
         totalEnergyKwh: totalEnergy,
         transactionCount: txCount
       };
+    }
+
+    private async getTransactionByHashCode(hash: string): Promise<any> {
+      return this.fetchWithCache(`${RAW_TX_URL}/${hash}`);
     }
 
     private async fetchWithCache(url: string): Promise<any> {
@@ -113,7 +122,10 @@ export class BlockchainEnergyConsumptionService {
 
     private async fetch(url: string): Promise<any> {
       try {
+          const startTime = Date.now(); 
           const response = await axios.get(url, { timeout: 10000 });
+          const endTime = Date.now();
+          console.log(`Fetched data in ${endTime - startTime} ms: ${url}`);
           return response.data;
       } catch (error) {
           console.error(`Error fetching data from ${url}:`, error);
@@ -121,5 +133,3 @@ export class BlockchainEnergyConsumptionService {
       }
   }
 }
-
-
