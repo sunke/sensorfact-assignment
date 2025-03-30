@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { Sema } from 'async-sema';
 import { DailyEnergy, TransactionEnergy, WalletEnergy } from './models';
+import { v4 as uuidv4 } from 'uuid'; // Import UUID library for unique ID generation
 
 const BASE_URL = 'https://blockchain.info';
 const RAW_BLOCK_URL = `${BASE_URL}/rawblock`;
@@ -9,18 +10,33 @@ const BLOCKS_URL = `${BASE_URL}/blocks`;
 const RAW_ADDR_URL = `${BASE_URL}/rawaddr`;
 
 export class BlockchainEnergyConsumptionService {
+    private readonly serviceId: string; // Unique ID for the service instance
     private readonly ENERGY_PER_BYTE = 4.56; // KwH
 
     /**
-     * TODO: persist cache to disk and use a more sophisticated caching mechanism.
-     * Currently it uses the url as the key and the fetched data as the value.
-     * This might cause dirty cache for example new transactions might be added to 
-     * the block but the cache is not updated.
+     * Cache with <block_hashcode, transactions>, for storing data to avoid redundant API calls.
+     * TODO: persist cache to disk
      */
-    private cache: Map<string, any> = new Map(); 
+    private blockCache: Map<string, any> = new Map(); 
+
+    
+    constructor() {
+      this.serviceId = uuidv4(); // Generate a unique ID for this instance
+      console.log(`Service instance created with ID: ${this.serviceId}`);
+    }
   
     async getBlockEnergyConsumption(blockHash: string): Promise<TransactionEnergy[]> {
-      const block = await this.fetchWithCache(
+      console.debug(`Service ID: ${this.serviceId}`);
+      console.debug('Current blockCache content:', Array.from(this.blockCache.entries()));
+
+      // Check if the block data is already cached
+      if (this.blockCache.has(blockHash)) {
+        console.log(`Cache hit for block hash: ${blockHash}`);
+        return this.blockCache.get(blockHash);
+      }
+
+      // Fetch block data from the API
+      const block = await this.fetch(
         `${RAW_BLOCK_URL}/${blockHash}`
       );
       
@@ -34,6 +50,8 @@ export class BlockchainEnergyConsumptionService {
         });
       }
 
+      // Cache the result using the block hash as the key
+      this.blockCache.set(blockHash, transactions);
       return transactions;
     }
 
@@ -48,7 +66,7 @@ export class BlockchainEnergyConsumptionService {
 
         await sema.acquire(); // Acquire a slot for the request
         try {
-          const blocks = await this.fetchWithCache(
+          const blocks = await this.fetch(
             `${BLOCKS_URL}/${timestamp}?format=json`
           );
 
@@ -81,7 +99,7 @@ export class BlockchainEnergyConsumptionService {
     }
 
     async getWalletEnergyConsumption(address: string): Promise<WalletEnergy> {
-      const wallet = await this.fetchWithCache(
+      const wallet = await this.fetch(
         `${RAW_ADDR_URL}/${address}`
       );
       
@@ -89,8 +107,7 @@ export class BlockchainEnergyConsumptionService {
       let txCount = 0;
       
       for (const tx of wallet.txs) {
-        const txDetails = await this.getTransactionByHashCode(tx.hash);
-        totalEnergy += txDetails.size * this.ENERGY_PER_BYTE;
+        totalEnergy += tx.size * this.ENERGY_PER_BYTE;
         txCount++;
       }
       
@@ -99,25 +116,6 @@ export class BlockchainEnergyConsumptionService {
         totalEnergyKwh: totalEnergy,
         transactionCount: txCount
       };
-    }
-
-    private async getTransactionByHashCode(hash: string): Promise<any> {
-      return this.fetchWithCache(`${RAW_TX_URL}/${hash}`);
-    }
-
-    private async fetchWithCache(url: string): Promise<any> {
-      // Check if the URL is already cached
-      if (this.cache.has(url)) {
-        console.log(`Cache hit for URL: ${url}`);
-        return this.cache.get(url);
-      }
-  
-      // Fetch data using the existing fetch method
-      const data = await this.fetch(url);
-  
-      // Cache the fetched data
-      this.cache.set(url, data);
-      return data;
     }
 
     private async fetch(url: string): Promise<any> {

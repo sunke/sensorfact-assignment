@@ -36,7 +36,7 @@ schemaComposer.createObjectTC({
 
 // Add fields to the Query type
 schemaComposer.Query.addFields({
-  energyPerTransaction: {
+  blockEnergyConsumption: {
     type: '[TransactionEnergy!]!',
     args: {
       blockHash: 'String!',

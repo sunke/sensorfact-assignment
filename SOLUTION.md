@@ -52,31 +52,6 @@ The main part of the solution is implemented in the `service.ts` file, which def
 
 ### Solution Performance Analysis
 
-The performance of the solution was evaluated by comparing sequential and parallel reads when fetching data from the Blockchain API. Below are the results:
-
-#### **Sequential Read**
-- **Request ID**: `2899f5a8-e73b-4dea-8b0e-b0c3d3b77bcb`
-- **Duration**: `67276.15 ms`
-- **Billed Duration**: `67277 ms`
-
-#### **Parallel Read (3 Concurrent Requests)**
-- **Request ID**: `660a1026-fe18-4795-926f-10cd1e21c74c`
-- **Duration**: `39561.17 ms`
-- **Billed Duration**: `39562 ms`
-
-#### **Performance Improvement**
-By introducing parallel reads with a concurrency limit of 3, the solution achieved a significant reduction in execution time:
-- **Improvement**: ~41% faster compared to sequential reads.
-
-#### **Key Optimizations**
-1. **Concurrency Control**:
-   - The `Sema` library was used to limit the number of concurrent API calls, ensuring efficient resource utilization without overwhelming the API.
-
-2. **Caching**:
-   - An in-memory cache was implemented to reduce redundant API calls, further improving performance.
-
-3. **Reusable Methods**:
-   - The `getTransactionDetails` method was extracted to centralize transaction fetch logic, reducing code duplication and improving maintainability.
 
 ---
 
