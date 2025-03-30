@@ -7,11 +7,9 @@ export class BlockchainEnergyConsumptionService {
     private cache: Map<string, any> = new Map(); // Cache to store fetched data
   
     async getEnergyPerBlock(blockHash: string): Promise<TransactionEnergy[]> {
-      console.time('fetchBlock');
       const block = await this.fetchWithCache(
         `https://blockchain.info/rawblock/${blockHash}`
       );
-      console.timeEnd('fetchBlock');
       
       const transactions: TransactionEnergy[] = [];
       const sema = new Sema(5); // Limit concurrency to 5

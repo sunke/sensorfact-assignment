@@ -1,6 +1,4 @@
 # dependencies
 /node_modules
+/dist
 .esbuild
-/.idea/modules.xml
-/.idea/backend-assignment-btcenergy.iml
-/.idea
