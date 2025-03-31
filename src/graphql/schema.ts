@@ -1,8 +1,8 @@
 import { SchemaComposer } from 'graphql-compose';
-import { BlockchainEnergyConsumptionService } from './service';
+import { GraphqlResolver } from './graphqlResolver';
 
 const schemaComposer = new SchemaComposer();
-const energyService = new BlockchainEnergyConsumptionService();
+const energyService = new GraphqlResolver();
 
 // Define the TransactionEnergy type
 schemaComposer.createObjectTC({
@@ -66,3 +66,4 @@ schemaComposer.Query.addFields({
 });
 
 export const schema = schemaComposer.buildSchema();
+export { schemaComposer };

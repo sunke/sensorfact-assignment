@@ -9,7 +9,7 @@ const RAW_TX_URL = `${BASE_URL}/rawtx`;
 const BLOCKS_URL = `${BASE_URL}/blocks`;
 const RAW_ADDR_URL = `${BASE_URL}/rawaddr`;
 
-export class BlockchainEnergyConsumptionService {
+export class GraphqlResolver {
     private readonly serviceId: string; // Unique ID for the service instance
     private readonly ENERGY_PER_BYTE = 4.56; // KwH
 
