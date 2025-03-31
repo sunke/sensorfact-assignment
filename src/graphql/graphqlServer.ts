@@ -1,7 +1,7 @@
-import { schemaComposer } from './schema';
+import { schemaComposer } from './schemaComposer';
 import { GraphqlResolver } from './graphqlResolver';
 
-const resolverService = new GraphqlResolver();
+const resolverService = GraphqlResolver.getInstance(); // Use the singleton instance
 
 // Add fields to the Query type
 schemaComposer.Query.addFields({

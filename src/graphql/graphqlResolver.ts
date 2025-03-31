@@ -10,6 +10,7 @@ const BLOCKS_URL = `${BASE_URL}/blocks`;
 const RAW_ADDR_URL = `${BASE_URL}/rawaddr`;
 
 export class GraphqlResolver {
+    private static instance: GraphqlResolver; // Singleton instance
     private readonly serviceId: string; // Unique ID for the service instance
     private readonly ENERGY_PER_BYTE = 4.56; // KwH
 
@@ -20,13 +21,21 @@ export class GraphqlResolver {
     private blockCache: Map<string, any> = new Map(); 
 
     
-    constructor() {
+    private constructor() {
       this.serviceId = uuidv4(); // Generate a unique ID for this instance
-      console.log(`Service instance created with ID: ${this.serviceId}`);
+      console.log(`Resolver created with ID: ${this.serviceId}`);
     }
-  
+
+    // Singleton instance getter
+    public static getInstance(): GraphqlResolver {
+        if (!GraphqlResolver.instance) {
+            GraphqlResolver.instance = new GraphqlResolver();
+        }
+        return GraphqlResolver.instance;
+    }
+    
     async getBlockEnergyConsumption(blockHash: string): Promise<TransactionEnergy[]> {
-      console.debug(`Service ID: ${this.serviceId}`);
+      console.debug(`Resolver ID: ${this.serviceId}`);
       console.debug('Current blockCache content:', Array.from(this.blockCache.entries()));
 
       // Check if the block data is already cached

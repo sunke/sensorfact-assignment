@@ -1,4 +1,4 @@
-import { schema } from './graphql/schema'
+import { schema } from './graphql/graphqlServer'
 import { APIGatewayProxyHandlerV2 } from 'aws-lambda'
 import CreateLambdaApi from 'lambda-api'
 import { getGraphQLParameters, processRequest } from 'graphql-helix'
